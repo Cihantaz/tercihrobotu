@@ -1,0 +1,69 @@
+===============================================
+        TERCİH ROBOTU - KULLANIM KILAVUZU
+===============================================
+
+Bu doküman, Tercih Robotu'nun kullanım akışını
+ve mevcut analiz mantığını açıklar.
+
+===============================================
+1. GİRİŞ
+===============================================
+
+- Uygulamaya mail adresiniz ve telefon numaranız ile giriş yaparsınız.
+- Bu bilgiler admin panelinde kayıt altına alınır.
+- Mail doğrulaması yapılmaz.
+
+===============================================
+2. GİRDİ ALANLARI
+===============================================
+
+Analiz ekranında her senaryo için şu alanlar doldurulur:
+
+- Öğrenci Adı Soyadı ve gerekirse bölüm
+- Sıralama
+- Puan Türü
+- Sınır
+
+Not:
+- Ayrıca bir "Riskli Sınır" alanı yoktur.
+- Sadece "Sınır" değeri kullanılır.
+
+===============================================
+3. HESAPLAMA MANTIĞI
+===============================================
+
+Temel formül:
+
+Alt Limit = Öğrenci Sıralaması - Sınır
+
+Sonuçlar şu şekilde etiketlenir:
+
+- Uygun:
+  Bölüm taban sıralaması öğrenci sıralamasına eşit veya daha yüksekse.
+
+- Riskli:
+  Bölüm taban sıralaması alt limit ile öğrenci sıralaması arasındaysa.
+
+- Uygunsuz:
+  Bölüm taban sıralaması alt limitin altındaysa.
+
+===============================================
+4. KULLANIM ÖNERİSİ
+===============================================
+
+- Sınır = 0 girerseniz daha dar ve doğrudan bir liste elde edersiniz.
+- Sınır değerini artırırsanız alternatif bölüm havuzu genişler.
+- Birden fazla senaryo ekleyerek farklı puan türlerini aynı analizde görebilirsiniz.
+
+===============================================
+5. SONUÇLAR
+===============================================
+
+- Analiz sonuçları ekranda tablo olarak gösterilir.
+- Sonuç varsa Excel olarak indirilebilir.
+- Giriş, analiz ve indirme aksiyonları admin panelinde loglanır.
+
+===============================================
+Hazırlayan: Tercih Robotu
+Tarih: 2026
+===============================================

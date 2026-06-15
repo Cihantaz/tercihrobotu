@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+instance/
+uploads/
+*.pyc
+.i18n_repo/
+.mailflow_repo/
+.postfix_repo/
+.publish_repo/
+~$*
+*.tmp
+*-FMVSNB809.*
