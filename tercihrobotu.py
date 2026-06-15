@@ -837,7 +837,8 @@ def detect_language(program_adi, raw_dil=None):
         raw_value = str(raw_dil).strip()
         if raw_value:
             lowered = turkish_lower(raw_value)
-            if lowered in ("ingilizce", "en", "english"):
+            upper_value = raw_value.upper()
+            if lowered in ("ingilizce", "en", "english", "ing") or upper_value in ("ING", "INGILIZCE", "EN", "ENGLISH"):
                 return "EN"
             return "TR"
     lowered_program = turkish_lower(program_adi)
