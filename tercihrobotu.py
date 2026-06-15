@@ -111,7 +111,6 @@ TEXTS = {
         "table_language": "Dil",
         "table_quota": "Kontenjan",
         "table_status": "Etiket",
-        "table_parameter": "Parametre",
         "status_eligible": "Uygun",
         "status_risky": "Riskli",
         "status_out": "Uygunsuz",
@@ -178,7 +177,6 @@ TEXTS = {
         "table_language": "Language",
         "table_quota": "Quota",
         "table_status": "Status",
-        "table_parameter": "Parameter",
         "status_eligible": "Eligible",
         "status_risky": "Stretch",
         "status_out": "Not Listed",
@@ -1253,10 +1251,7 @@ def generate_excel(row, results):
     lang = normalize_lang(row["language"])
     texts = get_texts(lang)
     header_map = dict(get_table_headers(lang))
-    header_map.pop("parametre", None)
     dataframe = pd.DataFrame(results).rename(columns=header_map)
-    if "parametre" in dataframe.columns:
-        dataframe = dataframe.drop(columns=["parametre"])
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         sheet_name = texts["sheet_name"]
