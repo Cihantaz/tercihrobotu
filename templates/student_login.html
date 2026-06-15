@@ -60,7 +60,6 @@
             <div class="guide-row">
                 <a href="{{ url_for('kullanim_klavuzu', lang=lang) }}" target="_blank" class="guide-link">{{ t["guide_button"] }}</a>
                 <div class="d-flex align-items-center gap-2">
-                    <a href="{{ url_for('admin_login', lang=lang) }}" class="btn btn-outline-dark btn-sm">Admin Girişi</a>
                     <div class="w-auto">
                         <label for="lang-switch" class="form-label mb-1 small text-secondary">{{ t["language_label"] }}</label>
                         <select id="lang-switch" name="lang_switch" class="form-select form-select-sm">
@@ -134,6 +133,9 @@
                     <button type="submit" class="btn btn-primary btn-lg">{{ t["continue_button"] }}</button>
                 </div>
             </form>
+            <div class="text-center mt-3">
+                <a href="{{ url_for('admin_login', lang=lang) }}" class="btn btn-outline-secondary btn-sm">Admin Girişi</a>
+            </div>
         </div>
     </div>
 
