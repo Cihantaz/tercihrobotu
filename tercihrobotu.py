@@ -86,7 +86,7 @@ TEXTS = {
         "delete_button": "Sil",
         "analyze_button": "Analiz Et",
         "results_title": "Analiz Sonuçları",
-        "download_button": "Excel Olarak İndir",
+        "download_button": "PDF Olarak İndir",
         "download_pdf_button": "PDF Olarak İndir",
         "no_results": "Bu senaryolar için sonuç bulunamadı.",
         "footer_text": "Işık Üniversitesi Öğrenci İşleri Daire Başkanlığı",
@@ -153,7 +153,7 @@ TEXTS = {
         "delete_button": "Delete",
         "analyze_button": "Analyze",
         "results_title": "Analysis Results",
-        "download_button": "Download as Excel",
+        "download_button": "Download as PDF",
         "download_pdf_button": "Download as PDF",
         "no_results": "No results were found for these scenarios.",
         "footer_text": "Isik University Registrar's Office",
@@ -1173,7 +1173,7 @@ def build_report_context(row):
         "result": results,
         "tablo_basliklari": get_table_headers(lang),
         "veri_dosyasi_adi": row["source_file"],
-        "download_url": url_for("indir", analysis_id=row["id"]),
+        "download_url": url_for("indir_pdf", analysis_id=row["id"]),
         "ephemeral_path": None,
         "result_meta": {
             "analysis_id": row["id"],
@@ -1226,7 +1226,7 @@ def indir_pdf(analysis_id):
     if row["student_name"]:
         filename = f"{clean_filename(row['student_name'])}.pdf"
     else:
-        filename = f"{clean_filename(row['student_input'] or analysis_id)}_{analysis_id[:8]}.pdf"
+        filename = f"{clean_filename(row['student_input'] or 'rapor')}.pdf"
     record_download(analysis_id, filename, len(results))
     record_student_event(
         row["student_email"],
@@ -1264,7 +1264,7 @@ def generate_excel(row, results):
         worksheet = writer.sheets[sheet_name]
         worksheet["A1"] = "{}: {}".format(texts["excel_student"], row["student_name"] or "")
         worksheet["A2"] = "{}: {}".format(texts["excel_department"], row["requested_department"])
-        worksheet["A3"] = "{}: {}".format(texts["excel_report"], row["id"])
+        # worksheet["A3"] = "{}: {}".format(texts["excel_report"], row["id"])
         worksheet.freeze_panes = "A5"
         last_row = max(len(dataframe), 1) + 3
         last_col_index = max(len(dataframe.columns), 1)
@@ -1305,7 +1305,6 @@ def generate_pdf(row, results):
     elements = [Paragraph(texts["page_title"], title_style), Spacer(1, 12)]
     elements.append(Paragraph(f"{texts['excel_student']}: {row['student_name'] or ''}", body_style))
     elements.append(Paragraph(f"{texts['excel_department']}: {row['requested_department']}", body_style))
-    elements.append(Paragraph(f"{texts['excel_report']}: {row['id']}", body_style))
     elements.append(Spacer(1, 12))
 
     headers = [label for _, label in get_table_headers(lang)]
@@ -1620,7 +1619,7 @@ def analyze():
             adsoyad=adsoyad_ve_bolum,
             eklenenler=eklenenler,
             result=results,
-            download_url=url_for("indir", analysis_id=analysis_id),
+            download_url=url_for("indir_pdf", analysis_id=analysis_id),
             result_meta={
                 "analysis_id": analysis_id,
                 "created_at": utcnow_iso(),
@@ -1730,8 +1729,8 @@ def indir(analysis_id):
         file_base = clean_filename(row["student_name"])
         filename = f"{file_base}.xlsx"
     else:
-        file_base = clean_filename(row["student_input"] or analysis_id)
-        filename = f"{file_base}_{analysis_id[:8]}.xlsx"
+        file_base = clean_filename(row["student_input"] or "rapor")
+        filename = f"{file_base}.xlsx"
     record_download(analysis_id, filename, len(results))
     record_student_event(
         row["student_email"],
