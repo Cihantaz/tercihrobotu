@@ -70,6 +70,7 @@ TEXTS = {
         "privacy_consent_prefix": "KVKK kapsamında kişisel verilerimin işlenmesine ilişkin",
         "privacy_consent_link_text": "Aydınlatma Metni'ni",
         "privacy_consent_suffix": "okudum ve kabul ediyorum.",
+        "info_consent_label": "Yukarıdaki bilgilendirme metnini okudum ve onaylıyorum.",
         "continue_button": "Devam Et",
         "home_button": "Ana Sayfa",
         "guide_button": "Kullanım Kılavuzu",
@@ -93,6 +94,7 @@ TEXTS = {
         "invalid_email": "Geçerli bir mail adresi girin.",
         "invalid_phone": "Telefon numarası girin.",
         "invalid_privacy_consent": "Aydınlatma Metni onay kutusunu işaretleyin.",
+        "invalid_info_consent": "Bilgilendirme metni onay kutusunu işaretleyin.",
         "invalid_session": "Giriş bilgileri geçerli değil, tekrar girin.",
         "invalid_scenarios": "Senaryo listesi okunamadı.",
         "no_scenario": "En az bir geçerli senaryo ekleyin.",
@@ -135,6 +137,7 @@ TEXTS = {
         "privacy_consent_prefix": "I have read and accept the",
         "privacy_consent_link_text": "Clarification Text",
         "privacy_consent_suffix": "regarding the processing of my personal data under KVKK.",
+        "info_consent_label": "I have read and confirm the above notice.",
         "continue_button": "Continue",
         "home_button": "Home",
         "guide_button": "User Guide",
@@ -158,6 +161,7 @@ TEXTS = {
         "invalid_email": "Enter a valid email address.",
         "invalid_phone": "Enter a phone number.",
         "invalid_privacy_consent": "Select the clarification text consent checkbox.",
+        "invalid_info_consent": "Please confirm the information notice checkbox.",
         "invalid_session": "Login information is invalid. Please start again.",
         "invalid_scenarios": "Scenario list could not be read.",
         "no_scenario": "Add at least one valid scenario.",
@@ -1432,6 +1436,7 @@ def _handle_student_login(lang):
     student_email = request.form.get("email", "").strip().lower()
     student_phone = normalize_phone(request.form.get("phone", ""))
     privacy_consent = request.form.get("privacy_consent") == "on"
+    info_consent = request.form.get("info_consent") == "on"
     if not is_valid_email(student_email):
         flash(texts["invalid_email"], "danger")
         return render_template(
@@ -1441,6 +1446,7 @@ def _handle_student_login(lang):
             email=student_email,
             phone=student_phone,
             privacy_consent=privacy_consent,
+            info_consent=info_consent,
         )
     if not student_phone:
         flash(texts["invalid_phone"], "danger")
@@ -1451,6 +1457,7 @@ def _handle_student_login(lang):
             email=student_email,
             phone=student_phone,
             privacy_consent=privacy_consent,
+            info_consent=info_consent,
         )
     if not privacy_consent:
         flash(texts["invalid_privacy_consent"], "danger")
@@ -1461,6 +1468,18 @@ def _handle_student_login(lang):
             email=student_email,
             phone=student_phone,
             privacy_consent=privacy_consent,
+            info_consent=info_consent,
+        )
+    if not info_consent:
+        flash(texts["invalid_info_consent"], "danger")
+        return render_template(
+            "student_login.html",
+            lang=lang,
+            t=texts,
+            email=student_email,
+            phone=student_phone,
+            privacy_consent=privacy_consent,
+            info_consent=info_consent,
         )
 
     record_student_event(
@@ -1492,6 +1511,7 @@ def index():
         email="",
         phone="",
         privacy_consent=False,
+        info_consent=False,
     )
 
 

@@ -97,8 +97,7 @@
                     <input type="text" id="phone" name="phone" value="{{ phone }}" class="form-control" placeholder="{{ t['phone_placeholder'] }}" required>
                 </div>
                 <div class="mb-4 consent-box">
-                    <p class="mb-3">{{ t["privacy_consent_text"] }}</p>
-                    <div class="form-check">
+                    <div class="form-check mb-3">
                         <input
                             class="form-check-input"
                             type="checkbox"
@@ -112,6 +111,22 @@
                             {{ t["privacy_consent_prefix"] }}
                             <a href="https://www.isikun.edu.tr/ik/kisisel-verilerin-korunmasina-yonelik-aydinlatma-ve-gizlilik-politikamiz" target="_blank" rel="noopener noreferrer">{{ t["privacy_consent_link_text"] }}</a>
                             {{ t["privacy_consent_suffix"] }}
+                        </label>
+                    </div>
+                    <hr class="my-3">
+                    <p class="mb-2">{{ t["privacy_consent_text"] }}</p>
+                    <div class="form-check">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            value="on"
+                            id="info_consent"
+                            name="info_consent"
+                            {% if info_consent %}checked{% endif %}
+                            required
+                        >
+                        <label class="form-check-label" for="info_consent">
+                            {{ t["info_consent_label"] }}
                         </label>
                     </div>
                 </div>
