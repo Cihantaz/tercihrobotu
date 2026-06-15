@@ -10,7 +10,6 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
 
-from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -115,10 +114,8 @@ TEXTS = {
         "status_risky": "Riskli",
         "status_out": "Uygunsuz",
         "status_unknown": "Sıralama Verisi Yok",
-        "sheet_name": "Sonuçlar",
         "excel_student": "Öğrenci",
         "excel_department": "Talep Edilen Bölüm",
-        "excel_report": "Rapor No",
     },
     "en": {
         "page_title": "Preference Robot",
@@ -181,10 +178,8 @@ TEXTS = {
         "status_risky": "Stretch",
         "status_out": "Not Listed",
         "status_unknown": "Ranking Data Missing",
-        "sheet_name": "Results",
         "excel_student": "Student",
         "excel_department": "Requested Department",
-        "excel_report": "Report ID",
     },
 }
 
@@ -1247,33 +1242,6 @@ def indir_pdf(analysis_id):
     )
 
 
-def generate_excel(row, results):
-    lang = normalize_lang(row["language"])
-    texts = get_texts(lang)
-    header_map = dict(get_table_headers(lang))
-    dataframe = pd.DataFrame(results).rename(columns=header_map)
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        sheet_name = texts["sheet_name"]
-        dataframe.to_excel(writer, index=False, sheet_name=sheet_name, startrow=3)
-        worksheet = writer.sheets[sheet_name]
-        worksheet["A1"] = "{}: {}".format(texts["excel_student"], row["student_name"] or "")
-        worksheet["A2"] = "{}: {}".format(texts["excel_department"], row["requested_department"])
-        # worksheet["A3"] = "{}: {}".format(texts["excel_report"], row["id"])
-        worksheet.freeze_panes = "A5"
-        last_row = max(len(dataframe), 1) + 3
-        last_col_index = max(len(dataframe.columns), 1)
-        worksheet.auto_filter.ref = "A4:{}".format(get_column_letter(last_col_index) + str(last_row))
-        for column_index, column_name in enumerate(dataframe.columns):
-            width = max(len(str(column_name)), 18)
-            if not dataframe.empty:
-                width = min(max(width, int(dataframe[column_name].astype(str).str.len().max())), 40)
-            col_letter = get_column_letter(column_index + 1)
-            worksheet.column_dimensions[col_letter].width = width + 2
-    output.seek(0)
-    return output
-
-
 def generate_pdf(row, results):
     lang = normalize_lang(row["language"])
     texts = get_texts(lang)
@@ -1714,49 +1682,7 @@ def admin_report(analysis_id):
 
 @app.get("/indir/<analysis_id>")
 def indir(analysis_id):
-    row = get_analysis(analysis_id)
-    if row is None or row["status"] != "success":
-        abort(404)
-
-    results = decompress_results(row["result_blob"])
-    output = generate_excel(row, results)
-    if row["student_name"]:
-        file_base = clean_filename(row["student_name"])
-        filename = f"{file_base}.xlsx"
-    else:
-        file_base = clean_filename(row["student_input"] or "rapor")
-        filename = f"{file_base}.xlsx"
-    record_download(analysis_id, filename, len(results))
-    record_student_event(
-        row["student_email"],
-        "download",
-        student_phone=row["student_phone"],
-        language=row["language"],
-        student_input=row["student_input"],
-        student_name=row["student_name"],
-        ranking_summary=row["ranking_summary"],
-        score_types_summary=row["score_types_summary"],
-        analysis_id=analysis_id,
-        status="success",
-        details={"filename": filename, "row_count": len(results)},
-    )
-    log_event(
-        "INFO",
-        "download_success",
-        "Excel indirildi.",
-        {
-            "analysis_id": analysis_id,
-            "student_email": row["student_email"],
-            "filename": filename,
-            "row_count": len(results),
-        },
-    )
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+    return redirect(url_for("indir_pdf", analysis_id=analysis_id))
 
 
 @app.post("/ogrenci-olay")
