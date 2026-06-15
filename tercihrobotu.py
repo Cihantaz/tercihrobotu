@@ -105,7 +105,7 @@ TEXTS = {
         "status_eligible": "Uygun",
         "status_risky": "Riskli",
         "status_out": "Uygunsuz",
-        "status_unknown": "Bilinmiyor",
+        "status_unknown": "Sıralama Verisi Yok",
         "sheet_name": "Sonuçlar",
         "excel_student": "Öğrenci",
         "excel_department": "Talep Edilen Bölüm",
@@ -168,7 +168,7 @@ TEXTS = {
         "status_eligible": "Eligible",
         "status_risky": "Stretch",
         "status_out": "Not Listed",
-        "status_unknown": "Unknown",
+        "status_unknown": "Ranking Data Missing",
         "sheet_name": "Results",
         "excel_student": "Student",
         "excel_department": "Requested Department",
@@ -1000,8 +1000,10 @@ def analiz_yap(df, eklenenler, lang):
 
         siralama_numeric = filtered["__taban_siralama_numeric"]
         main_rows = filtered[siralama_numeric.fillna(-1) > alt_limit]
+        missing_rows = filtered[siralama_numeric.isna()]
 
-        for row in main_rows.to_dict("records"):
+        for frame in (main_rows, missing_rows):
+            for row in frame.to_dict("records"):
                 unique_key = (
                     parameter["tur"],
                     parameter["puan"],
@@ -1182,7 +1184,7 @@ def generate_excel(row, results):
         for column_index, column_name in enumerate(dataframe.columns):
             width = max(len(str(column_name)), 18)
             if not dataframe.empty:
-                width = min(max(width, int(dataframe[column_name].astype(str).map(len).max())), 40)
+                width = min(max(width, int(dataframe[column_name].astype(str).str.len().max())), 40)
             col_letter = get_column_letter(column_index + 1)
             worksheet.column_dimensions[col_letter].width = width + 2
     output.seek(0)
