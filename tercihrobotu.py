@@ -1053,7 +1053,7 @@ def analiz_yap(df, eklenenler, lang):
             filtered = filtered[filtered["__puan_turu"] == parameter["tur"]]
 
         siralama_numeric = filtered["__taban_siralama_numeric"]
-        main_rows = filtered[siralama_numeric.fillna(-1) > alt_limit]
+        main_rows = filtered[siralama_numeric.notna()]
         missing_rows = filtered[siralama_numeric.isna()]
 
         for frame in (main_rows, missing_rows):
