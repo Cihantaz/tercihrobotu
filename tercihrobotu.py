@@ -11,7 +11,7 @@ from functools import wraps
 from pathlib import Path
 
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -1246,7 +1246,7 @@ def generate_pdf(row, results):
     lang = normalize_lang(row["language"])
     texts = get_texts(lang)
     output = io.BytesIO()
-    doc = SimpleDocTemplate(output, pagesize=A4, rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
+    doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=18, leftMargin=18, topMargin=18, bottomMargin=18)
     font_name = get_pdf_font_name()
     stylesheet = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -1264,18 +1264,48 @@ def generate_pdf(row, results):
         fontSize=10,
         leading=14,
     )
+    cell_style = ParagraphStyle(
+        "Cell",
+        parent=stylesheet["Normal"],
+        fontName=font_name,
+        fontSize=8,
+        leading=10,
+    )
+    header_cell_style = ParagraphStyle(
+        "HeaderCell",
+        parent=stylesheet["Normal"],
+        fontName=font_name,
+        fontSize=8,
+        leading=10,
+        textColor=colors.black,
+        alignment="LEFT",
+    )
 
     elements = [Paragraph(texts["page_title"], title_style), Spacer(1, 12)]
     elements.append(Paragraph(f"{texts['excel_student']}: {row['student_name'] or ''}", body_style))
     elements.append(Paragraph(f"{texts['excel_department']}: {row['requested_department']}", body_style))
     elements.append(Spacer(1, 12))
 
-    headers = [label for _, label in get_table_headers(lang)]
+    headers = [Paragraph(label, header_cell_style) for _, label in get_table_headers(lang)]
     table_data = [headers]
     for item in results:
-        table_data.append([str(item.get(key, "")) for key, _ in get_table_headers(lang)])
+        table_data.append([Paragraph(str(item.get(key, "")), cell_style) for key, _ in get_table_headers(lang)])
 
-    table = Table(table_data, repeatRows=1)
+    col_widths = {
+        "bolum_adi": 200,
+        "puan_turu": 55,
+        "burs_orani": 80,
+        "taban_siralama": 75,
+        "taban_puan": 65,
+        "tavan_puan": 65,
+        "ucret": 75,
+        "dil": 45,
+        "kontenjan": 60,
+        "etiket": 75,
+    }
+    widths = [col_widths.get(key, 70) for key, _ in get_table_headers(lang)]
+
+    table = Table(table_data, repeatRows=1, colWidths=widths)
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dbe9f4")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
@@ -1283,7 +1313,11 @@ def generate_pdf(row, results):
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("FONTNAME", (0, 0), (-1, -1), font_name),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     elements.append(table)
     doc.build(elements)
