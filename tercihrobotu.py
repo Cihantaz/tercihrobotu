@@ -11,6 +11,12 @@ from functools import wraps
 from pathlib import Path
 
 from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 import pandas as pd
 from flask import (
@@ -60,9 +66,8 @@ TEXTS = {
         "email_placeholder": "ornek@mail.com",
         "phone_label": "Telefon numaranızı giriniz",
         "phone_placeholder": "05xx xxx xx xx",
-        "privacy_consent_prefix": "KVKK kapsamında kişisel verilerimin işlenmesine ilişkin",
-        "privacy_consent_link_text": "Aydınlatma Metni’ni",
-        "privacy_consent_suffix": "okudum ve kabul ediyorum.",
+        "privacy_consent_text": "Tercih Robotu sistemimiz, adayların tercih süreçlerine rehberlik etmek amacıyla tasarlanmış olup tavsiye niteliği taşımaktadır. Sistem sonuçları, üniversiteye kesin yerleşme veya burs kazanma garantisi sunmamaktadır.",
+        "privacy_consent_label": "Bu metni okudum ve kabul ediyorum.",
         "continue_button": "Devam Et",
         "home_button": "Ana Sayfa",
         "guide_button": "Kullanım Kılavuzu",
@@ -79,6 +84,7 @@ TEXTS = {
         "analyze_button": "Analiz Et",
         "results_title": "Analiz Sonuçları",
         "download_button": "Excel Olarak İndir",
+        "download_pdf_button": "PDF Olarak İndir",
         "no_results": "Bu senaryolar için sonuç bulunamadı.",
         "footer_text": "Işık Üniversitesi Öğrenci İşleri Daire Başkanlığı",
         "fill_required": "Sıralama, Puan Türü ve Sınır alanlarını doldurun.",
@@ -123,9 +129,8 @@ TEXTS = {
         "email_placeholder": "example@mail.com",
         "phone_label": "Enter your phone number",
         "phone_placeholder": "+90 5xx xxx xx xx",
-        "privacy_consent_prefix": "I have read and accept the",
-        "privacy_consent_link_text": "Clarification Text",
-        "privacy_consent_suffix": "regarding the processing of my personal data under KVKK.",
+        "privacy_consent_text": "Our Preference Robot system is designed to guide candidates in their preference process and is provided for informational purposes only. System results do not guarantee university admission or scholarship awards.",
+        "privacy_consent_label": "I have read and agree to this notice.",
         "continue_button": "Continue",
         "home_button": "Home",
         "guide_button": "User Guide",
@@ -142,12 +147,13 @@ TEXTS = {
         "analyze_button": "Analyze",
         "results_title": "Analysis Results",
         "download_button": "Download as Excel",
+        "download_pdf_button": "Download as PDF",
         "no_results": "No results were found for these scenarios.",
         "footer_text": "Isik University Registrar's Office",
         "fill_required": "Fill in the Ranking, Score Type and Limit fields.",
         "invalid_email": "Enter a valid email address.",
         "invalid_phone": "Enter a phone number.",
-        "invalid_privacy_consent": "Select the clarification text consent checkbox.",
+        "invalid_privacy_consent": "Please confirm the information notice.",
         "invalid_session": "Login information is invalid. Please start again.",
         "invalid_scenarios": "Scenario list could not be read.",
         "no_scenario": "Add at least one valid scenario.",
@@ -187,7 +193,6 @@ TABLE_HEADER_KEYS = [
     ("dil", "table_language"),
     ("kontenjan", "table_quota"),
     ("etiket", "table_status"),
-    ("parametre", "table_parameter"),
 ]
 
 BURSLULUK_KELIMELERI = [
@@ -231,6 +236,43 @@ def get_texts(lang):
 def get_table_headers(lang):
     texts = get_texts(lang)
     return [(key, texts[label_key]) for key, label_key in TABLE_HEADER_KEYS]
+
+
+def find_system_font():
+    candidates = [
+        "DejaVuSans.ttf",
+        "LiberationSans-Regular.ttf",
+        "Arial.ttf",
+        "FreeSans.ttf",
+    ]
+    search_paths = [
+        Path("/usr/share/fonts/truetype/dejavu"),
+        Path("/usr/share/fonts/truetype/liberation"),
+        Path("/usr/share/fonts/truetype/freefont"),
+        Path("/usr/share/fonts/truetype/msttcorefonts"),
+        Path("/Library/Fonts"),
+        Path("C:/Windows/Fonts"),
+    ]
+    for directory in search_paths:
+        for candidate in candidates:
+            path = directory / candidate
+            if path.exists():
+                return path
+    return None
+
+
+def get_pdf_font_name():
+    font_name = "Helvetica"
+    if font_name in pdfmetrics.getRegisteredFontNames():
+        return font_name
+    system_font = find_system_font()
+    if system_font is not None:
+        try:
+            pdfmetrics.registerFont(TTFont("CustomFont", str(system_font)))
+            return "CustomFont"
+        except Exception:
+            pass
+    return font_name
 
 
 def localize_status(status_key, lang):
@@ -809,10 +851,15 @@ def format_ucret(value):
     text_value = str(value).strip()
     if not text_value or text_value.lower() == "nan":
         return ""
+    normalized = text_value.lower().replace("ç", "c").replace("ş", "s").replace("ı", "i").replace("ğ", "g").replace("ö", "o").replace("ü", "u")
+    if "ucretsiz" in normalized or "free" in normalized:
+        return "Ücretsiz" if "ucretsiz" in normalized else "Free"
     cleaned = text_value.replace(".", "").replace(",", "").replace("\u20ba", "").replace("TL", "").strip()
     if cleaned.isdigit():
+        if int(cleaned) == 0:
+            return "Ücretsiz"
         return "{:,.0f} TL".format(float(cleaned)).replace(",", ".")
-    return text_value if text_value.endswith("TL") else text_value + " TL"
+    return text_value
 
 
 def turkish_lower(value):
@@ -980,7 +1027,6 @@ def build_result_row(row, parameter, ogr_siralama_int, alt_limit, lang):
         "dil": row.get("__dil", "TR"),
         "kontenjan": row.get("__kontenjan", ""),
         "etiket": localize_status(status_key, lang),
-        "parametre": "{}/ {}/ {}".format(parameter["tur"], parameter["puan"], parameter["sinir"]),
     }
 
 
@@ -1161,6 +1207,40 @@ def render_analysis_template(
     )
 
 
+@app.get("/indir-pdf/<analysis_id>")
+def indir_pdf(analysis_id):
+    row = get_analysis(analysis_id)
+    if row is None or row["status"] != "success":
+        abort(404)
+
+    results = decompress_results(row["result_blob"])
+    output = generate_pdf(row, results)
+    if row["student_name"]:
+        filename = f"{clean_filename(row['student_name'])}.pdf"
+    else:
+        filename = f"{clean_filename(row['student_input'] or analysis_id)}_{analysis_id[:8]}.pdf"
+    record_download(analysis_id, filename, len(results))
+    record_student_event(
+        row["student_email"],
+        "download",
+        student_phone=row["student_phone"],
+        language=row["language"],
+        student_input=row["student_input"],
+        student_name=row["student_name"],
+        ranking_summary=row["ranking_summary"],
+        score_types_summary=row["score_types_summary"],
+        analysis_id=analysis_id,
+        status="success",
+        details={"filename": filename, "row_count": len(results), "format": "pdf"},
+    )
+    return send_file(
+        output,
+        mimetype="application/pdf",
+        download_name=filename,
+        as_attachment=True,
+    )
+
+
 def generate_excel(row, results):
     lang = normalize_lang(row["language"])
     texts = get_texts(lang)
@@ -1174,7 +1254,7 @@ def generate_excel(row, results):
         sheet_name = texts["sheet_name"]
         dataframe.to_excel(writer, index=False, sheet_name=sheet_name, startrow=3)
         worksheet = writer.sheets[sheet_name]
-        worksheet["A1"] = "{}: {}".format(texts["excel_student"], row["student_name"] or row["student_input"])
+        worksheet["A1"] = "{}: {}".format(texts["excel_student"], row["student_name"] or "")
         worksheet["A2"] = "{}: {}".format(texts["excel_department"], row["requested_department"])
         worksheet["A3"] = "{}: {}".format(texts["excel_report"], row["id"])
         worksheet.freeze_panes = "A5"
@@ -1187,6 +1267,56 @@ def generate_excel(row, results):
                 width = min(max(width, int(dataframe[column_name].astype(str).str.len().max())), 40)
             col_letter = get_column_letter(column_index + 1)
             worksheet.column_dimensions[col_letter].width = width + 2
+    output.seek(0)
+    return output
+
+
+def generate_pdf(row, results):
+    lang = normalize_lang(row["language"])
+    texts = get_texts(lang)
+    output = io.BytesIO()
+    doc = SimpleDocTemplate(output, pagesize=A4, rightMargin=24, leftMargin=24, topMargin=24, bottomMargin=24)
+    font_name = get_pdf_font_name()
+    stylesheet = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "Title",
+        parent=stylesheet["Title"],
+        fontName=font_name,
+        fontSize=16,
+        leading=20,
+        alignment=1,
+    )
+    body_style = ParagraphStyle(
+        "Body",
+        parent=stylesheet["Normal"],
+        fontName=font_name,
+        fontSize=10,
+        leading=14,
+    )
+
+    elements = [Paragraph(texts["page_title"], title_style), Spacer(1, 12)]
+    elements.append(Paragraph(f"{texts['excel_student']}: {row['student_name'] or ''}", body_style))
+    elements.append(Paragraph(f"{texts['excel_department']}: {row['requested_department']}", body_style))
+    elements.append(Paragraph(f"{texts['excel_report']}: {row['id']}", body_style))
+    elements.append(Spacer(1, 12))
+
+    headers = [label for _, label in get_table_headers(lang)]
+    table_data = [headers]
+    for item in results:
+        table_data.append([str(item.get(key, "")) for key, _ in get_table_headers(lang)])
+
+    table = Table(table_data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dbe9f4")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+    ]))
+    elements.append(table)
+    doc.build(elements)
     output.seek(0)
     return output
 
@@ -1572,8 +1702,12 @@ def indir(analysis_id):
 
     results = decompress_results(row["result_blob"])
     output = generate_excel(row, results)
-    file_base = clean_filename(row["student_name"] or row["student_input"] or analysis_id)
-    filename = "{}_{}.xlsx".format(file_base, analysis_id[:8])
+    if row["student_name"]:
+        file_base = clean_filename(row["student_name"])
+        filename = f"{file_base}.xlsx"
+    else:
+        file_base = clean_filename(row["student_input"] or analysis_id)
+        filename = f"{file_base}_{analysis_id[:8]}.xlsx"
     record_download(analysis_id, filename, len(results))
     record_student_event(
         row["student_email"],

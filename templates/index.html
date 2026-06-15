@@ -188,6 +188,7 @@
                 <div class="section-title mb-0">{{ t["results_title"] }}</div>
                 {% if download_url and result %}
                 <a href="{{ download_url }}" class="btn btn-success">{{ t["download_button"] }}</a>
+                <a href="{{ url_for('indir_pdf', analysis_id=result_meta.analysis_id) }}" class="btn btn-secondary">{{ t["download_pdf_button"] }}</a>
                 {% endif %}
             </div>
 
