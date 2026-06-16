@@ -55,6 +55,7 @@ SUPPORTED_LANGS = ("tr", "en")
 TEXTS = {
     "tr": {
         "page_title": "Tercih Robotu",
+        "pdf_title": "Tercih Robotu Analizi",
         "brand_title": "Tercih Robotu",
         "login_title": "Tercih Robotu",
         "login_prompt": "Devam etmek için mail adresinizi ve telefon numaranızı giriniz.",
@@ -115,10 +116,11 @@ TEXTS = {
         "status_out": "Uygunsuz",
         "status_unknown": "Sıralama Verisi Yok",
         "excel_student": "Öğrenci",
-        "excel_department": "Talep Edilen Bölüm",
+        "excel_department": "Tercih Edilen Bölüm",
     },
     "en": {
         "page_title": "Preference Robot",
+        "pdf_title": "Preference Robot Analysis",
         "brand_title": "Tercih Robotu",
         "login_title": "Preference Robot",
         "login_prompt": "Enter your email address and phone number to continue.",
@@ -1279,7 +1281,7 @@ def generate_pdf(row, results):
         textColor=colors.black,
     )
 
-    elements = [Paragraph(texts["page_title"], title_style), Spacer(1, 12)]
+    elements = [Paragraph(texts["pdf_title"], title_style), Spacer(1, 12)]
     elements.append(Paragraph(f"{texts['excel_student']}: {row['student_name'] or ''}", body_style))
     elements.append(Paragraph(f"{texts['excel_department']}: {row['requested_department']}", body_style))
     elements.append(Spacer(1, 12))
@@ -1318,6 +1320,16 @@ def generate_pdf(row, results):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     elements.append(table)
+    elements.append(Spacer(1, 12))
+    disclaimer_style = ParagraphStyle(
+        "Disclaimer",
+        parent=body_style,
+        fontSize=8,
+        leading=12,
+        textColor=colors.HexColor("#555555"),
+        alignment=1,
+    )
+    elements.append(Paragraph(texts["privacy_consent_text"], disclaimer_style))
     doc.build(elements)
     output.seek(0)
     return output
