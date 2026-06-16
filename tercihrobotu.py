@@ -263,9 +263,8 @@ def find_system_font():
 
 
 def get_pdf_font_name():
-    font_name = "Helvetica"
-    if font_name in pdfmetrics.getRegisteredFontNames():
-        return font_name
+    if "CustomFont" in pdfmetrics.getRegisteredFontNames():
+        return "CustomFont"
     system_font = find_system_font()
     if system_font is not None:
         try:
@@ -273,7 +272,7 @@ def get_pdf_font_name():
             return "CustomFont"
         except Exception:
             pass
-    return font_name
+    return "Helvetica"
 
 
 def localize_status(status_key, lang):
@@ -1278,7 +1277,6 @@ def generate_pdf(row, results):
         fontSize=8,
         leading=10,
         textColor=colors.black,
-        alignment="LEFT",
     )
 
     elements = [Paragraph(texts["page_title"], title_style), Spacer(1, 12)]
