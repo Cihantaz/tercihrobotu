@@ -1246,7 +1246,7 @@ def generate_pdf(row, results):
     lang = normalize_lang(row["language"])
     texts = get_texts(lang)
     output = io.BytesIO()
-    doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=18, leftMargin=18, topMargin=18, bottomMargin=18)
+    doc = SimpleDocTemplate(output, pagesize=landscape(A4), rightMargin=14, leftMargin=14, topMargin=14, bottomMargin=14)
     font_name = get_pdf_font_name()
     stylesheet = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -1292,16 +1292,16 @@ def generate_pdf(row, results):
         table_data.append([Paragraph(str(item.get(key, "")), cell_style) for key, _ in get_table_headers(lang)])
 
     col_widths = {
-        "bolum_adi": 200,
-        "puan_turu": 55,
-        "burs_orani": 80,
-        "taban_siralama": 75,
-        "taban_puan": 65,
-        "tavan_puan": 65,
-        "ucret": 75,
-        "dil": 45,
-        "kontenjan": 60,
-        "etiket": 75,
+        "bolum_adi": 160,
+        "puan_turu": 48,
+        "burs_orani": 65,
+        "taban_siralama": 65,
+        "taban_puan": 55,
+        "tavan_puan": 55,
+        "ucret": 60,
+        "dil": 38,
+        "kontenjan": 50,
+        "etiket": 65,
     }
     widths = [col_widths.get(key, 70) for key, _ in get_table_headers(lang)]
 
@@ -1314,10 +1314,10 @@ def generate_pdf(row, results):
         ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
         ("FONTNAME", (0, 0), (-1, -1), font_name),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING", (0, 0), (-1, -1), 4),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
     elements.append(table)
     doc.build(elements)
