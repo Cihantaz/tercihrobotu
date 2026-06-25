@@ -1507,107 +1507,26 @@ def _handle_student_login(lang):
         language=lang,
         details={"ip": get_client_ip(), "privacy_consent": True},
     )
-    try:
-        import random
-        code = str(random.randint(100000, 999999))
-        session["pending_email"] = student_email
-        session["pending_phone"] = student_phone
-        session["verification_code"] = code
-        session["verification_expires"] = (datetime.now() + timedelta(minutes=5)).timestamp()
-        
-        send_verification_email(student_email, code)
-        
-        return redirect(url_for("verify_code", lang=lang))
-    except Exception as e:
-        import traceback
-        return f"CRITICAL ERROR IN LOGIN: {str(e)} <br><pre>{traceback.format_exc()}</pre>", 500
-
-
-def send_verification_email(to_email, code):
-    sendgrid_key = os.environ.get("SENDGRID_API_KEY")
-    sender = os.environ.get("MAIL_DEFAULT_SENDER", "noreply2@isikun.edu.tr")
+    session["verified_email"] = student_email
+    session["verified_phone"] = student_phone
+    session.permanent = True
+    app.permanent_session_lifetime = timedelta(days=365)
     
-    if not sendgrid_key:
-        app.logger.warning(f"SENDGRID_API_KEY bulunamadi. Dogrulama kodu: {code}")
-        return False
-        
-    import urllib.request
-    import json
+    log_event(
+        "INFO",
+        "student_login",
+        "Ogrenci girisi basarili.",
+        {"student_email": student_email, "student_phone": student_phone, "language": lang},
+    )
+    record_student_event(
+        student_email,
+        "login",
+        student_phone=student_phone,
+        language=lang,
+        status="success"
+    )
     
-    url = "https://api.sendgrid.com/v3/mail/send"
-    payload = {
-        "personalizations": [{"to": [{"email": to_email}], "subject": "Tercih Robotu Doğrulama Kodu"}],
-        "from": {"email": sender},
-        "content": [{"type": "text/plain", "value": f"Tercih Robotu doğrulama kodunuz: {code}\n\nBu kod 5 dakika boyunca geçerlidir."}]
-    }
-    
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, method="POST")
-    req.add_header("Authorization", f"Bearer {sendgrid_key}")
-    req.add_header("Content-Type", "application/json")
-    
-    try:
-        with urllib.request.urlopen(req, timeout=5) as response:
-            if response.status >= 400:
-                app.logger.error(f"SendGrid API Hatasi: {response.status}")
-                return False
-        return True
-    except Exception as e:
-        app.logger.error(f"E-posta gonderme hatasi (HTTP API): {e}")
-        return False
-
-@app.route("/dogrula", methods=["GET", "POST"])
-def verify_code():
-    lang = normalize_lang(request.args.get("lang") or request.form.get("lang"))
-    texts = get_texts(lang)
-    
-    try:
-        if "pending_email" not in session:
-            return redirect(url_for("index", lang=lang))
-            
-        if request.method == "POST":
-            code_input = request.form.get("code", "").strip()
-            expected_code = session.get("verification_code")
-            expires = session.get("verification_expires", 0)
-            
-            if datetime.now().timestamp() > expires:
-                flash("Doğrulama kodunun süresi doldu, lütfen tekrar giriş yapın." if lang=="tr" else "Verification code expired, please log in again.", "danger")
-                session.pop("pending_email", None)
-                return redirect(url_for("index", lang=lang))
-                
-            if code_input == str(expected_code):
-                student_email = session.pop("pending_email")
-                student_phone = session.pop("pending_phone", "")
-                session.pop("verification_code", None)
-                session.pop("verification_expires", None)
-                
-                session["verified_email"] = student_email
-                session["verified_phone"] = student_phone
-                session.permanent = True
-                app.permanent_session_lifetime = timedelta(days=365)
-                
-                log_event(
-                    "INFO",
-                    "student_login",
-                    "Ogrenci girisi dogrulandi.",
-                    {"student_email": student_email, "student_phone": student_phone, "language": lang},
-                )
-                record_student_event(
-                    student_email,
-                    "login",
-                    student_phone=student_phone,
-                    language=lang,
-                    status="success"
-                )
-                
-                return redirect(url_for("index", lang=lang))
-            else:
-                flash("Hatalı doğrulama kodu." if lang=="tr" else "Invalid verification code.", "danger")
-                
-        return render_template("verify.html", lang=lang, t=texts, email=session.get("pending_email"))
-    except Exception as e:
-        import traceback
-        return f"CRITICAL ERROR IN VERIFY_CODE: {str(e)} <br><pre>{traceback.format_exc()}</pre>", 500
+    return redirect(url_for("index", lang=lang))
 
 @app.route("/", methods=["GET", "POST"])
 def index():
