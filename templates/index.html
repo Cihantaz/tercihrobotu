@@ -106,8 +106,7 @@
                 <a href="{{ url_for('index', lang=lang) }}" class="btn btn-outline-secondary btn-sm">{{ t["home_button"] }}</a>
             </div>
             <div class="center-nav"><a href="{{ url_for('index', lang=lang) }}" class="text-decoration-none text-reset">{{ t["brand_title"] }}</a></div>
-            <div class="right-nav d-flex gap-2 justify-content-end">
-                <a href="{{ url_for('cikis', lang=lang) }}" class="btn btn-outline-danger btn-sm">{{ "Çıkış Yap" if lang == "tr" else "Logout" }}</a>
+            <div class="right-nav">
                 <a href="{{ url_for('kullanim_klavuzu', lang=lang, student_email=student_email, student_phone=student_phone) }}" target="_blank" class="btn btn-outline-primary btn-sm">{{ t["guide_button"] }}</a>
             </div>
         </div>

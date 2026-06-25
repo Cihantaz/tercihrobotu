@@ -1293,9 +1293,8 @@ def generate_pdf(row, results):
     )
 
     elements = [Paragraph(texts["pdf_title"], title_style), Spacer(1, 12)]
-    elements.append(Paragraph(f"{texts['excel_student']}: {row['student_name'] or ''}", body_style))
-    if row.get('requested_department'):
-        elements.append(Paragraph(f"{row['requested_department']}", body_style))
+    if row["student_input"]:
+        elements.append(Paragraph(f"{row['student_input']}", body_style))
     elements.append(Spacer(1, 12))
 
     headers = [Paragraph(label, header_cell_style) for _, label in get_table_headers(lang)]
@@ -1509,8 +1508,6 @@ def _handle_student_login(lang):
     )
     session["verified_email"] = student_email
     session["verified_phone"] = student_phone
-    session.permanent = True
-    app.permanent_session_lifetime = timedelta(days=365)
     
     log_event(
         "INFO",
