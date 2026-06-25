@@ -1972,16 +1972,7 @@ def kullanim_klavuzu():
 
 @app.get("/health")
 def health():
-    try:
-        dataframe, source_file = get_dataset()
-        return {
-            "status": "ok",
-            "active_data_file": source_file,
-            "rows": int(len(dataframe)),
-            "database": str(DATABASE_PATH),
-        }
-    except Exception as exc:
-        return {"status": "error", "message": str(exc)}, 500
+    return {"status": "ok", "message": "App is running"}
 
 
 init_db()
