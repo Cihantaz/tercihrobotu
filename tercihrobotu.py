@@ -6,6 +6,7 @@ import threading
 import time
 import uuid
 import zlib
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
@@ -113,7 +114,8 @@ TEXTS = {
         "table_status": "Etiket",
         "status_eligible": "Uygun",
         "status_risky": "Riskli",
-        "status_out": "Uygunsuz",
+        "status_out": "Uygun"
+        "Değil",
         "status_unknown": "Sıralama Verisi Yok",
         "excel_student": "Öğrenci",
         "excel_department": "Tercih Edilen Bölüm",
@@ -342,7 +344,7 @@ def get_user_agent():
 
 def get_db_connection():
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(str(DATABASE_PATH))
+    connection = sqlite3.connect(str(DATABASE_PATH), timeout=20.0)
     connection.row_factory = sqlite3.Row
     try:
         connection.execute("PRAGMA journal_mode=WAL")
@@ -353,8 +355,18 @@ def get_db_connection():
     return connection
 
 
+@contextmanager
+def get_db_transaction():
+    conn = get_db_connection()
+    try:
+        with conn:
+            yield conn
+    finally:
+        conn.close()
+
+
 def init_db():
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         connection.executescript(
             """
             CREATE TABLE IF NOT EXISTS app_settings (
@@ -564,7 +576,7 @@ def maybe_cleanup(force=False):
             datetime.now(timezone.utc) - timedelta(days=LOG_RETENTION_DAYS)
         ).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
-        with get_db_connection() as connection:
+        with get_db_transaction() as connection:
             connection.execute("DELETE FROM download_events WHERE created_at < ?", (report_cutoff,))
             connection.execute("DELETE FROM analysis_runs WHERE created_at < ?", (report_cutoff,))
             connection.execute("DELETE FROM app_logs WHERE created_at < ?", (log_cutoff,))
@@ -574,14 +586,14 @@ def maybe_cleanup(force=False):
 
 
 def get_setting(key, default=None):
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         row = connection.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
     return row["value"] if row else default
 
 
 def set_setting(key, value):
     timestamp = utcnow_iso()
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         connection.execute(
             """
             INSERT INTO app_settings(key, value, updated_at)
@@ -597,7 +609,7 @@ def set_setting(key, value):
 def log_event(level, event_type, message, context=None):
     payload = json.dumps(context or {}, ensure_ascii=False)
     timestamp = utcnow_iso()
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         connection.execute(
             "INSERT INTO app_logs(created_at, level, event_type, message, context_json) VALUES (?, ?, ?, ?, ?)",
             (timestamp, level.upper(), event_type, message, payload),
@@ -635,7 +647,7 @@ def record_student_event(
         "event_count": 1,
     }
 
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         connection.execute(
             """
             INSERT INTO student_events(
@@ -1096,7 +1108,7 @@ def save_analysis(
 ):
     analysis_id = uuid.uuid4().hex
     timestamp = utcnow_iso()
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         connection.execute(
             """
             INSERT INTO analysis_runs(
@@ -1134,14 +1146,14 @@ def save_analysis(
 
 
 def get_analysis(analysis_id):
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         row = connection.execute("SELECT * FROM analysis_runs WHERE id = ?", (analysis_id,)).fetchone()
     return row
 
 
 def record_download(analysis_id, filename, row_count):
     timestamp = utcnow_iso()
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         connection.execute(
             "INSERT INTO download_events(analysis_id, created_at, filename, row_count, client_ip, user_agent) VALUES (?, ?, ?, ?, ?, ?)",
             (analysis_id, timestamp, filename, row_count, get_client_ip(), get_user_agent()),
@@ -1357,7 +1369,7 @@ def format_student_event_label(event_type):
 
 def get_admin_metrics():
     today_prefix = datetime.now(timezone.utc).date().isoformat()
-    with get_db_connection() as connection:
+    with get_db_transaction() as connection:
         recent_students = []
         for row in connection.execute(
             """
@@ -1823,7 +1835,7 @@ def admin_dashboard():
             maybe_cleanup(force=True)
             flash("Eski log ve rapor kayitlari temizlendi.", "success")
         elif action == "purge_all_data":
-            with get_db_connection() as connection:
+            with get_db_transaction() as connection:
                 connection.execute("DELETE FROM download_events")
                 connection.execute("DELETE FROM analysis_runs")
                 connection.execute("DELETE FROM app_logs")
