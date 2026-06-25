@@ -1541,7 +1541,7 @@ def send_verification_email(to_email, code):
     msg['To'] = to_email
     
     try:
-        with smtplib.SMTP("smtp.sendgrid.net", 587) as server:
+        with smtplib.SMTP("smtp.sendgrid.net", 2525, timeout=5) as server:
             server.starttls()
             server.login("apikey", sendgrid_key)
             server.send_message(msg)
