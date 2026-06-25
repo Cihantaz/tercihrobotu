@@ -77,7 +77,7 @@ TEXTS = {
         "guide_button": "Kullanım Kılavuzu",
         "admin_button": "Admin",
         "form_intro": "Lütfen aşağıdaki bilgileri doldurunuz.",
-        "student_name_label": "Öğrenci Adı Soyadı ve gerekirse bölüm",
+        "student_name_label": "Adı Soyadı, Bölüm",
         "student_name_placeholder": "Örnek: Ayşe Yılmaz, Psikoloji",
         "ranking_label": "Sıralama",
         "score_type_label": "Puan Türü",
@@ -114,8 +114,7 @@ TEXTS = {
         "table_status": "Etiket",
         "status_eligible": "Uygun",
         "status_risky": "Riskli",
-        "status_out": "Uygun"
-        "Değil",
+        "status_out": "Uygun Değil",
         "status_unknown": "Sıralama Verisi Yok",
         "excel_student": "Öğrenci",
         "excel_department": "Tercih Edilen Bölüm",
@@ -143,7 +142,7 @@ TEXTS = {
         "guide_button": "User Guide",
         "admin_button": "Admin",
         "form_intro": "Please fill in the information below.",
-        "student_name_label": "Student full name and department if needed",
+        "student_name_label": "Full Name, Department",
         "student_name_placeholder": "Example: Ayse Yilmaz, Psychology",
         "ranking_label": "Ranking",
         "score_type_label": "Score Type",
@@ -1295,7 +1294,8 @@ def generate_pdf(row, results):
 
     elements = [Paragraph(texts["pdf_title"], title_style), Spacer(1, 12)]
     elements.append(Paragraph(f"{texts['excel_student']}: {row['student_name'] or ''}", body_style))
-    elements.append(Paragraph(f"{texts['excel_department']}: {row['requested_department']}", body_style))
+    if row.get('requested_department'):
+        elements.append(Paragraph(f"{row['requested_department']}", body_style))
     elements.append(Spacer(1, 12))
 
     headers = [Paragraph(label, header_cell_style) for _, label in get_table_headers(lang)]
@@ -1502,23 +1502,111 @@ def _handle_student_login(lang):
 
     record_student_event(
         student_email,
-        "login",
+        "login_attempt",
         student_phone=student_phone,
         language=lang,
         details={"ip": get_client_ip(), "privacy_consent": True},
     )
-    log_event(
-        "INFO",
-        "student_login",
-        "Ogrenci girisi alindi.",
-        {"student_email": student_email, "student_phone": student_phone, "language": lang},
-    )
-    return render_analysis_template(student_email=student_email, student_phone=student_phone, lang=lang)
+    
+    import random
+    code = str(random.randint(100000, 999999))
+    session["pending_email"] = student_email
+    session["pending_phone"] = student_phone
+    session["verification_code"] = code
+    session["verification_expires"] = (datetime.now() + timedelta(minutes=5)).timestamp()
+    
+    send_verification_email(student_email, code)
+    
+    return redirect(url_for("verify_code", lang=lang))
 
+
+import smtplib
+from email.message import EmailMessage
+
+def send_verification_email(to_email, code):
+    sendgrid_key = os.environ.get("SENDGRID_API_KEY")
+    sender = os.environ.get("MAIL_DEFAULT_SENDER", "noreply2@isikun.edu.tr")
+    
+    if not sendgrid_key:
+        app.logger.warning(f"SENDGRID_API_KEY bulunamadi. Dogrulama kodu: {code}")
+        return False
+        
+    msg = EmailMessage()
+    msg.set_content(f"Tercih Robotu doğrulama kodunuz: {code}\n\nBu kod 5 dakika boyunca geçerlidir.")
+    msg['Subject'] = "Tercih Robotu Doğrulama Kodu"
+    msg['From'] = sender
+    msg['To'] = to_email
+    
+    try:
+        with smtplib.SMTP("smtp.sendgrid.net", 587) as server:
+            server.starttls()
+            server.login("apikey", sendgrid_key)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        app.logger.error(f"E-posta gonderme hatasi: {e}")
+        return False
+
+@app.route("/dogrula", methods=["GET", "POST"])
+def verify_code():
+    lang = normalize_lang(request.args.get("lang") or request.form.get("lang"))
+    texts = get_texts(lang)
+    
+    if "pending_email" not in session:
+        return redirect(url_for("index", lang=lang))
+        
+    if request.method == "POST":
+        code_input = request.form.get("code", "").strip()
+        expected_code = session.get("verification_code")
+        expires = session.get("verification_expires", 0)
+        
+        if datetime.now().timestamp() > expires:
+            flash("Doğrulama kodunun süresi doldu, lütfen tekrar giriş yapın." if lang=="tr" else "Verification code expired, please log in again.", "danger")
+            session.pop("pending_email", None)
+            return redirect(url_for("index", lang=lang))
+            
+        if code_input == str(expected_code):
+            student_email = session.pop("pending_email")
+            student_phone = session.pop("pending_phone", "")
+            session.pop("verification_code", None)
+            session.pop("verification_expires", None)
+            
+            session["verified_email"] = student_email
+            session["verified_phone"] = student_phone
+            session.permanent = True
+            app.permanent_session_lifetime = timedelta(days=365)
+            
+            log_event(
+                "INFO",
+                "student_login",
+                "Ogrenci girisi dogrulandi.",
+                {"student_email": student_email, "student_phone": student_phone, "language": lang},
+            )
+            record_student_event(
+                student_email,
+                "login",
+                student_phone=student_phone,
+                language=lang,
+                status="success"
+            )
+            
+            return redirect(url_for("index", lang=lang))
+        else:
+            flash("Hatalı doğrulama kodu." if lang=="tr" else "Invalid verification code.", "danger")
+            
+    return render_template("verify.html", lang=lang, t=texts, email=session.get("pending_email"))
 
 @app.route("/", methods=["GET", "POST"])
 def index():
     lang = normalize_lang(request.args.get("lang") or request.form.get("lang"))
+    
+    if "verified_email" in session and request.method == "GET":
+        return render_analysis_template(
+            student_email=session["verified_email"],
+            student_phone=session.get("verified_phone", ""),
+            lang=lang
+        )
+
     if request.method == "POST":
         return _handle_student_login(lang)
     texts = get_texts(lang)
@@ -1716,6 +1804,8 @@ def student_login():
 
 @app.get("/cikis")
 def student_logout():
+    session.pop("verified_email", None)
+    session.pop("verified_phone", None)
     return redirect(url_for("index", lang=normalize_lang(request.args.get("lang"))))
 
 
