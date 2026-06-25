@@ -1523,9 +1523,6 @@ def _handle_student_login(lang):
         return f"CRITICAL ERROR IN LOGIN: {str(e)} <br><pre>{traceback.format_exc()}</pre>", 500
 
 
-import smtplib
-from email.message import EmailMessage
-
 def send_verification_email(to_email, code):
     sendgrid_key = os.environ.get("SENDGRID_API_KEY")
     sender = os.environ.get("MAIL_DEFAULT_SENDER", "noreply2@isikun.edu.tr")
@@ -1534,19 +1531,29 @@ def send_verification_email(to_email, code):
         app.logger.warning(f"SENDGRID_API_KEY bulunamadi. Dogrulama kodu: {code}")
         return False
         
-    msg = EmailMessage()
-    msg.set_content(f"Tercih Robotu doğrulama kodunuz: {code}\n\nBu kod 5 dakika boyunca geçerlidir.")
-    msg['Subject'] = "Tercih Robotu Doğrulama Kodu"
-    msg['From'] = sender
-    msg['To'] = to_email
+    import urllib.request
+    import json
+    
+    url = "https://api.sendgrid.com/v3/mail/send"
+    payload = {
+        "personalizations": [{"to": [{"email": to_email}], "subject": "Tercih Robotu Doğrulama Kodu"}],
+        "from": {"email": sender},
+        "content": [{"type": "text/plain", "value": f"Tercih Robotu doğrulama kodunuz: {code}\n\nBu kod 5 dakika boyunca geçerlidir."}]
+    }
+    
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("Authorization", f"Bearer {sendgrid_key}")
+    req.add_header("Content-Type", "application/json")
     
     try:
-        with smtplib.SMTP_SSL("smtp.sendgrid.net", 465, timeout=5) as server:
-            server.login("apikey", sendgrid_key)
-            server.send_message(msg)
+        with urllib.request.urlopen(req, timeout=5) as response:
+            if response.status >= 400:
+                app.logger.error(f"SendGrid API Hatasi: {response.status}")
+                return False
         return True
     except Exception as e:
-        app.logger.error(f"E-posta gonderme hatasi: {e}")
+        app.logger.error(f"E-posta gonderme hatasi (HTTP API): {e}")
         return False
 
 @app.route("/dogrula", methods=["GET", "POST"])
