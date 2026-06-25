@@ -1528,6 +1528,13 @@ def _handle_student_login(lang):
     
     return redirect(url_for("index", lang=lang))
 
+@app.route("/cikis")
+def cikis():
+    lang = normalize_lang(request.args.get("lang"))
+    session.pop("verified_email", None)
+    session.pop("verified_phone", None)
+    return redirect(url_for("index", lang=lang))
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     lang = normalize_lang(request.args.get("lang") or request.form.get("lang"))
