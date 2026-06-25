@@ -1898,8 +1898,7 @@ def kullanim_klavuzu():
             language=lang,
             status="success",
         )
-    kilavuz_yolu = APP_ROOT / ("kullanimklavuzu_en.txt" if lang == "en" else "kullanimklavuzu.txt")
-    return send_file(str(kilavuz_yolu), mimetype="text/plain; charset=utf-8")
+    return render_template("guide.html", lang=lang, t=get_texts(lang))
 
 
 @app.get("/health")
